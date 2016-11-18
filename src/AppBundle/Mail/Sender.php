@@ -5,7 +5,8 @@
  */
 namespace AppBundle\Mail;
 
-use AppBundle\Entity\Message;
+use AppBundle\Model\Contact;
+use Symfony\Bundle\TwigBundle\TwigEngine as Templating;
 use Swift_Mailer;
 use Swift_Message;
 
@@ -14,36 +15,47 @@ class Sender
     /** @var \Swift_Mailer */
     protected $mailer;
 
+    /** var \Symfony\Bundle\TwigBundle\TwigEngine */
+    protected $templating;
+
+    /** @var string */
+    protected $senderEmail;
+
+    /** @var string */
+    protected $recipientEmail;
+
     /**
      * @param \Swift_Mailer $mailer
      */
-    public function __construct(Swift_Mailer $mailer)
+    public function __construct(
+        Swift_Mailer $mailer,
+        Templating $templating,
+        $senderEmail,
+        $recipientEmail
+    )
     {
         $this->mailer = $mailer;
+        $this->templating = $templating;
+        $this->senderEmail = $senderEmail;
+        $this->recipientEmail = $recipientEmail;
     }
 
     /**
-     * Sends e-mail with content based on form settings.
-     *
-     * @param \AppBundle\Entity\Message $message
-     * @param string $title
-     * @param string $senderEmail
-     * @param string $recipientEmail
-     *
-     * @return bool
+     * @param Contact $contact
      */
-    public function send(Message $message, $title, $senderEmail, $recipientEmail)
+    public function send(Contact $contact)
     {
-        $msg = Swift_Message::newInstance($title, $message->getBody());
+        $title = 'You have a new message from ' . $contact->getFrom(); //todo handle this with translation : waiting for translation story
+        $message = Swift_Message::newInstance($title, $contact->getMessage())
+            ->setFrom($this->senderEmail)
+            ->setTo($this->recipientEmail)
+            ->setReplyTo($this->recipientEmail)
+            ->setBody(
+                $this->templating->render('/mail/contact.html.twig', [
+                    'contact' => $contact
+                ])
+            );
 
-        $msg->setFrom($senderEmail)
-            ->setTo($recipientEmail)
-            ->setReplyTo($recipientEmail);
-
-        if ($this->mailer->send($msg)) {
-            return true;
-        } else {
-            return false;
-        }
+        $this->mailer->send($message);
     }
 }
